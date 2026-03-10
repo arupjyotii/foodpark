@@ -9,14 +9,15 @@ import { formatCurrency } from '@/lib/utils';
 export default function MenuPage() {
     const [searchParams] = useSearchParams();
     const { setTableId, items, total } = useCart();
-    const tableNumber = searchParams.get('table');
+    const tableIdParam = searchParams.get('table');
+    const tableNameParam = searchParams.get('name');
     const [cartOpen, setCartOpen] = useState(false);
 
     useEffect(() => {
-        if (tableNumber) {
-            setTableId(tableNumber);
+        if (tableIdParam) {
+            setTableId(tableIdParam, tableNameParam);
         }
-    }, [tableNumber, setTableId]);
+    }, [tableIdParam, tableNameParam, setTableId]);
 
     const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 

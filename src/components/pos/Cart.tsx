@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { formatCurrency } from '@/lib/utils';
 
 export default function Cart() {
-    const { items, updateQuantity, removeItem, clearCart, subtotal, tax, total, tableId } = useCart();
+    const { items, updateQuantity, removeItem, clearCart, subtotal, tax, total, tableId, tableName } = useCart();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [isPlacing, setIsPlacing] = useState(false);
@@ -113,7 +113,7 @@ export default function Cart() {
                 </div>
                 {tableId && (
                     <div className="mt-2 inline-flex bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
-                        {tableId}
+                        🪑 {tableName ?? tableId}
                     </div>
                 )}
             </CardHeader>

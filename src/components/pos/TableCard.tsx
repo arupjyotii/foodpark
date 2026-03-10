@@ -40,7 +40,7 @@ export default function TableCard({ table, onSelect }: TableCardProps) {
         if (table.status === 'occupied') {
             onSelect(table);
         } else {
-            navigate(`/orders/new?table=${table.id}`);
+            navigate(`/orders/new?table=${table.id}&name=${encodeURIComponent(table.number)}`);
         }
     };
 

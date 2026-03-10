@@ -9,12 +9,13 @@ export interface CartItem extends MenuItem {
 interface CartState {
     items: CartItem[];
     tableId: string | null;
+    tableName: string | null;
     addItem: (item: MenuItem) => void;
     removeItem: (itemId: string) => void;
     updateQuantity: (itemId: string, quantity: number) => void;
     updateNotes: (itemId: string, notes: string) => void;
     clearCart: () => void;
-    setTableId: (tableId: string | null) => void;
+    setTableId: (tableId: string | null, tableName?: string | null) => void;
     subtotal: () => number;
     tax: () => number;
     total: () => number;
@@ -25,6 +26,7 @@ const TAX_RATE = 0.05; // 5% GST
 export const useCart = create<CartState>((set, get) => ({
     items: [],
     tableId: null,
+    tableName: null,
 
     addItem: (item) => {
         const items = get().items;
@@ -65,9 +67,9 @@ export const useCart = create<CartState>((set, get) => ({
         });
     },
 
-    clearCart: () => set({ items: [], tableId: null }),
+    clearCart: () => set({ items: [], tableId: null, tableName: null }),
 
-    setTableId: (tableId) => set({ tableId }),
+    setTableId: (tableId, tableName = null) => set({ tableId, tableName }),
 
     subtotal: () => {
         return get().items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
