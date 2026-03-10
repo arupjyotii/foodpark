@@ -689,6 +689,7 @@ function MenuTab() {
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 import { useSettings } from '@/store/useSettings';
 import type { PaymentMethod } from '@/store/useSettings';
+import * as XLSX from 'xlsx';
 
 const PAYMENT_META: Record<PaymentMethod, { label: string; icon: typeof ChefHat; color: string }> = {
     cash: { label: 'Cash', icon: UtensilsCrossed, color: 'text-emerald-600' },
@@ -725,6 +726,185 @@ function ToggleSwitch({ checked, onChange, disabled }: { checked: boolean; onCha
                 checked ? 'translate-x-6' : 'translate-x-1'
             )} />
         </button>
+    );
+}
+
+// ─── Reports Tab (Owner only) ────────────────────────────────────────────────
+function ReportsTab() {
+    const [exporting, setExporting] = useState(false);
+    const [summary, setSummary] = useState<{ total: number; paid: number; revenue: number } | null>(null);
+    const [loaded, setLoaded] = useState(false);
+
+    // Load summary on mount
+    useEffect(() => {
+        const load = async () => {
+            const { data } = await supabase
+                .from('orders')
+                .select('id, status, total_amount');
+            if (data) {
+                const paid = data.filter(o => o.status === 'paid');
+                setSummary({
+                    total: data.length,
+                    paid: paid.length,
+                    revenue: paid.reduce((s, o) => s + o.total_amount, 0),
+                });
+            }
+            setLoaded(true);
+        };
+        load();
+    }, []);
+
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            // Fetch all orders with full detail
+            const { data: orders } = await supabase
+                .from('orders')
+                .select(`
+                    id, status, subtotal, tax_amount, total_amount, created_at,
+                    table:tables(number),
+                    waiter:profiles(full_name),
+                    order_items(id, quantity, unit_price, total_price, menu_item:menu_items(name)),
+                    transactions(payment_method, status, amount, created_at)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (!orders || orders.length === 0) {
+                alert('No orders found to export.');
+                return;
+            }
+
+            // Flatten: one row per order-item
+            const rows: Record<string, string | number>[] = [];
+            for (const order of orders as any[]) {
+                const successTx = order.transactions?.find((t: any) => t.status === 'success');
+                const payMethod = successTx?.payment_method?.toUpperCase() ?? '—';
+                const date = new Date(order.created_at);
+                const dateStr = date.toLocaleDateString('en-IN');
+                const timeStr = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+                const items = order.order_items ?? [];
+                if (items.length === 0) {
+                    rows.push({
+                        'Order ID': order.id.slice(0, 8).toUpperCase(),
+                        'Date': dateStr,
+                        'Time': timeStr,
+                        'Table': order.table?.number ?? '—',
+                        'Status': order.status,
+                        'Waiter': order.waiter?.full_name ?? '—',
+                        'Item': '(no items)',
+                        'Qty': '',
+                        'Unit Price (₹)': '',
+                        'Item Total (₹)': '',
+                        'Subtotal (₹)': (order.subtotal / 100).toFixed(2),
+                        'Tax (₹)': (order.tax_amount / 100).toFixed(2),
+                        'Order Total (₹)': (order.total_amount / 100).toFixed(2),
+                        'Payment Method': payMethod,
+                    });
+                } else {
+                    for (const item of items) {
+                        rows.push({
+                            'Order ID': order.id.slice(0, 8).toUpperCase(),
+                            'Date': dateStr,
+                            'Time': timeStr,
+                            'Table': order.table?.number ?? '—',
+                            'Status': order.status,
+                            'Waiter': order.waiter?.full_name ?? '—',
+                            'Item': item.menu_item?.name ?? '—',
+                            'Qty': item.quantity,
+                            'Unit Price (₹)': (item.unit_price / 100).toFixed(2),
+                            'Item Total (₹)': (item.total_price / 100).toFixed(2),
+                            'Subtotal (₹)': (order.subtotal / 100).toFixed(2),
+                            'Tax (₹)': (order.tax_amount / 100).toFixed(2),
+                            'Order Total (₹)': (order.total_amount / 100).toFixed(2),
+                            'Payment Method': payMethod,
+                        });
+                    }
+                }
+            }
+
+            // Build workbook
+            const ws = XLSX.utils.json_to_sheet(rows);
+            // Auto column widths
+            const colWidths = Object.keys(rows[0]).map(k => ({ wch: Math.max(k.length, 14) }));
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Orders Report');
+
+            const fileName = `SuSwadish_Orders_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6 max-w-3xl">
+            <Card className="border">
+                <CardHeader>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <ClipboardList className="w-4 h-4 text-primary" /> Orders Report Export
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+
+                    {/* Summary */}
+                    {loaded && summary && (
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-slate-50 rounded-xl p-4 text-center">
+                                <p className="text-2xl font-black text-slate-900">{summary.total}</p>
+                                <p className="text-xs text-slate-500 font-medium mt-1">Total Orders</p>
+                            </div>
+                            <div className="bg-emerald-50 rounded-xl p-4 text-center">
+                                <p className="text-2xl font-black text-emerald-700">{summary.paid}</p>
+                                <p className="text-xs text-slate-500 font-medium mt-1">Paid Orders</p>
+                            </div>
+                            <div className="bg-primary/5 rounded-xl p-4 text-center">
+                                <p className="text-2xl font-black text-primary">
+                                    ₹{(summary.revenue / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </p>
+                                <p className="text-xs text-slate-500 font-medium mt-1">Total Revenue</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* What's included */}
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Report Includes</p>
+                        {[
+                            'Order ID, Date & Time',
+                            'Table Name',
+                            'Order Status',
+                            'Waiter / Server Name',
+                            'Each Item — Name, Qty, Unit Price, Total',
+                            'Subtotal, Tax, Order Total',
+                            'Payment Method (Cash / Card / UPI)',
+                        ].map(item => (
+                            <div key={item} className="flex items-center gap-2 text-sm text-slate-700">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                {item}
+                            </div>
+                        ))}
+                    </div>
+
+                    <Button
+                        onClick={handleExport}
+                        disabled={exporting}
+                        className="w-full h-12 gap-2 font-bold text-base"
+                    >
+                        {exporting
+                            ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating Excel...</>
+                            : <><ClipboardList className="w-5 h-5" /> Export All Orders to Excel</>
+                        }
+                    </Button>
+
+                    <p className="text-xs text-center text-slate-400">
+                        Downloads a .xlsx file with all orders — one row per item ordered.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
@@ -1022,6 +1202,11 @@ export default function ManagePage() {
                     <TabsTrigger value="settings" className="gap-2 px-5">
                         <Settings className="w-4 h-4" /> Settings
                     </TabsTrigger>
+                    {user.role === 'owner' && (
+                        <TabsTrigger value="reports" className="gap-2 px-5">
+                            <ClipboardList className="w-4 h-4" /> Reports
+                        </TabsTrigger>
+                    )}
                 </TabsList>
 
                 <TabsContent value="staff">
@@ -1039,6 +1224,12 @@ export default function ManagePage() {
                 <TabsContent value="settings">
                     <SettingsTab />
                 </TabsContent>
+
+                {user.role === 'owner' && (
+                    <TabsContent value="reports">
+                        <ReportsTab />
+                    </TabsContent>
+                )}
             </Tabs>
         </div>
     );
