@@ -85,6 +85,19 @@ export const useSettings = create<SettingsState>()(
                 );
             },
         }),
-        { name: 'restaurant-settings' }
+        { 
+            name: 'restaurant-settings',
+            partialize: (state) => ({
+                restaurantName: state.restaurantName,
+                address: state.address,
+                phone: state.phone,
+                gstin: state.gstin,
+                taxRate: state.taxRate,
+                receiptFooter: state.receiptFooter,
+                paymentMethods: state.paymentMethods,
+                defaultPayment: state.defaultPayment,
+                permissions: state.permissions,
+            }),
+        }
     )
 );
