@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
 import { generateInvoicePDF } from '@/lib/billing';
@@ -246,24 +246,32 @@ export default function OrdersPage() {
         setRefreshing(false);
     }, []);
 
+    // Guard against concurrent overlapping fetches
+    const isFetchingRef = useRef(false);
+    const safeFetchOrders = useCallback(async () => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+        try { await fetchOrders(); } finally { isFetchingRef.current = false; }
+    }, [fetchOrders]);
+
     useEffect(() => {
         fetchOrders();
-        const interval = setInterval(() => fetchOrders(), 30000);
-
+        // Use a unique channel name to prevent stale subscription accumulation on remounts
+        const channelName = `orders-realtime-${Date.now()}`;
         const channel = supabase
-            .channel('orders-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
+            .channel(channelName)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, safeFetchOrders)
             .subscribe();
 
         return () => {
-            clearInterval(interval);
             supabase.removeChannel(channel);
         };
-    }, [fetchOrders]);
+    }, [fetchOrders, safeFetchOrders]);
 
     const handleStatusChange = async (orderId: string, newStatus: string) => {
+        // Optimistic update — no need to refetch, realtime subscription will sync
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus as OrderWithItems['status'] } : o));
         await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-        fetchOrders();
     };
 
     const handlePay = async (method: PayMethod) => {

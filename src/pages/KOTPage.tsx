@@ -205,21 +205,23 @@ export default function KOTPage() {
     useEffect(() => {
         fetchOrders();
 
+        const channelName = `kot-realtime-${Date.now()}`;
         const channel = supabase
-            .channel('kot-realtime')
+            .channel(channelName)
+            // Only listen to order status changes (not every order_item change)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => fetchOrders())
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
     }, [fetchOrders]);
 
     const handleStatusChange = async (orderId: string, newStatus: string) => {
+        // Optimistic UI update — no full refetch needed
+        setOrders(prev => prev
+            .map(o => o.id === orderId ? { ...o, status: newStatus as KOTOrder['status'] } : o)
+            .filter(o => ['pending', 'preparing', 'ready'].includes(o.status))
+        );
         await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
-        // Optimistic update
-        setOrders(prev => prev.map(o =>
-            o.id === orderId ? { ...o, status: newStatus as KOTOrder['status'] } : o
-        ));
     };
 
     if (loading) {

@@ -25,11 +25,6 @@ export default function TableGrid() {
         fetchTables();
         const unsubscribe = subscribeToTables();
 
-        // 30-second polling fallback
-        const pollInterval = setInterval(() => {
-            fetchTables();
-        }, 10000);
-
         // 2-minute auto-clean: reset 'cleaning' tables to 'available'
         const cleanInterval = setInterval(async () => {
             const { data: cleaningTables } = await supabase
@@ -43,11 +38,10 @@ export default function TableGrid() {
                     .in('id', cleaningTables.map(t => t.id));
                 fetchTables();
             }
-        }, 100000); // 1 minutes
+        }, 120000);
 
         return () => {
             unsubscribe();
-            clearInterval(pollInterval);
             clearInterval(cleanInterval);
         };
     }, [fetchTables, subscribeToTables]);
