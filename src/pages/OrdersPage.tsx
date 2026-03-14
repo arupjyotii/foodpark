@@ -110,8 +110,8 @@ function BillDialog({ order, onClose }: { order: OrderWithItems; onClose: () => 
     const settings = useSettings();
     const currentUser = useAuth(s => s.user);
 
-    const handlePrint = () => {
-        const doc = generateInvoicePDF({
+    const handlePrint = async () => {
+        const doc = await generateInvoicePDF({
             order: order as any,
             items: order.order_items as any,
             restaurantName: settings.restaurantName,
@@ -302,7 +302,7 @@ export default function OrdersPage() {
 
             // 4. Auto-print the bill
             const methodLabel = { cash: 'Cash', card: 'Card', upi: 'UPI' }[method];
-            const doc = generateInvoicePDF({
+            const doc = await generateInvoicePDF({
                 order: paymentTarget as any,
                 items: paymentTarget.order_items as any,
                 restaurantName: settings.restaurantName,

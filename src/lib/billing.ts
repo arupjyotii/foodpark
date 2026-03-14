@@ -21,7 +21,7 @@ const row = (doc: jsPDF, label: string, value: string, y: number, width: number)
     doc.text(value, width - 5, y, { align: 'right' });
 };
 
-export const generateInvoicePDF = (data: InvoiceData) => {
+export const generateInvoicePDF = async (data: InvoiceData) => {
     // ── Dynamic height calculation ───────────────────────────────────────
     // Estimate: header ~40mm + per-item ~5mm + totals ~25mm + footer ~12mm
     const headerMm = 42 + (data.address ? 4 : 0) + (data.phone ? 4 : 0) + (data.gstin ? 4 : 0) + (data.billerName ? 4 : 0);
@@ -41,9 +41,26 @@ export const generateInvoicePDF = (data: InvoiceData) => {
     let y = 8;
 
     // ── Restaurant Header ────────────────────────────────────────────────
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text(data.restaurantName || 'Restaurant', W / 2, y, { align: 'center' });
+    try {
+        const response = await fetch('/assets/logo.png');
+        if (!response.ok) throw new Error('Logo not found');
+        const blob = await response.blob();
+        const base64data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+        // 50mm wide, 25mm high, centered on 80mm paper (X = 15)
+        doc.addImage(base64data, 'PNG', 15, y, 50, 25);
+        y += 28; // Move down below logo
+    } catch (err) {
+        // Fallback to text if image fails
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(data.restaurantName || 'Restaurant', W / 2, y, { align: 'center' });
+        y += 5;
+    }
 
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');

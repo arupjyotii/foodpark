@@ -34,8 +34,8 @@ export default function OrderSummary({ tableId, tableNumber, onClose }: OrderSum
         </Card>
     );
 
-    const handlePrint = () => {
-        const doc = generateInvoicePDF({
+    const handlePrint = async () => {
+        const doc = await generateInvoicePDF({
             order,
             items,
             restaurantName: settings.restaurantName,
