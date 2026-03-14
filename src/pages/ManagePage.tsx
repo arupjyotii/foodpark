@@ -1019,6 +1019,9 @@ function SettingsTab() {
                             <div className="bg-white border-2 border-dashed border-slate-200 rounded-xl p-4 font-mono text-[11px] leading-relaxed text-slate-800 min-h-64">
                                 {/* Header */}
                                 <div className="text-center border-b border-dashed border-slate-300 pb-2 mb-2">
+                                    <div className="flex justify-center mb-2">
+                                        <img src="/assets/logo.png" alt="Logo" className="h-8 object-contain" />
+                                    </div>
                                     <p className="font-bold text-[13px]">{draft.restaurantName || 'Restaurant Name'}</p>
                                     {draft.address && <p className="text-[10px] text-slate-500">{draft.address}</p>}
                                     {draft.phone && <p className="text-[10px] text-slate-500">Tel: {draft.phone}</p>}
