@@ -21,7 +21,7 @@ interface CartState {
     total: () => number;
 }
 
-const TAX_RATE = 0.05; // 5% GST
+import { useSettings } from './useSettings';
 
 export const useCart = create<CartState>((set, get) => ({
     items: [],
@@ -76,7 +76,8 @@ export const useCart = create<CartState>((set, get) => ({
     },
 
     tax: () => {
-        return Math.round(get().subtotal() * TAX_RATE);
+        const rate = useSettings.getState().taxRate / 100;
+        return Math.round(get().subtotal() * rate);
     },
 
     total: () => {

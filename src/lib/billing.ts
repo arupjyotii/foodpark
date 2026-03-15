@@ -143,7 +143,7 @@ export const generateInvoicePDF = async (data: InvoiceData) => {
     row(doc, 'Subtotal:', `Rs. ${(data.order.subtotal / 100).toFixed(2)}`, y, W);
 
     y += 4;
-    const taxLabel = data.taxRate !== undefined ? `Tax (${data.taxRate}%):` : 'Tax:';
+    const taxLabel = data.taxRate !== undefined ? `Taxes and Charges (${data.taxRate}%):` : 'Taxes and Charges:';
     row(doc, taxLabel, `Rs. ${(data.order.tax_amount / 100).toFixed(2)}`, y, W);
 
     y += 2;

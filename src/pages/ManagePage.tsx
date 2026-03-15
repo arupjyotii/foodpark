@@ -1042,7 +1042,7 @@ function SettingsTab() {
                                 {/* Totals */}
                                 <div className="border-b border-dashed border-slate-300 pb-2 mb-2 text-[10px]">
                                     <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>₹1290</span></div>
-                                    <div className="flex justify-between text-slate-500"><span>Tax ({draft.taxRate}%)</span><span>₹{Math.round(1290 * draft.taxRate / 100)}</span></div>
+                                    <div className="flex justify-between text-slate-500"><span>Taxes & Charges ({draft.taxRate}%)</span><span>₹{Math.round(1290 * draft.taxRate / 100)}</span></div>
                                     <div className="flex justify-between font-bold text-[12px] mt-1"><span>TOTAL</span><span>₹{Math.round(1290 * (1 + draft.taxRate / 100))}</span></div>
                                 </div>
                                 {/* Footer */}

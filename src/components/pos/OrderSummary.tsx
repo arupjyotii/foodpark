@@ -90,7 +90,7 @@ export default function OrderSummary({ tableId, tableNumber, onClose }: OrderSum
                         <span>{formatCurrency(order.subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-slate-500 font-medium">
-                        <span>Tax ({settings.taxRate}%)</span>
+                        <span>Taxes & Charges ({settings.taxRate}%)</span>
                         <span>{formatCurrency(order.tax_amount)}</span>
                     </div>
                     <div className="flex justify-between text-3xl font-black text-slate-900 pt-2 border-t border-slate-100">

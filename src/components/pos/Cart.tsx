@@ -5,12 +5,14 @@ import { useCart } from '@/store/useCart';
 import { useState } from 'react';
 import { Trash2, Plus, Minus, ShoppingCart, ArrowRight, Loader2 } from 'lucide-react';
 import { printKOT } from '@/lib/billing';
+import { useSettings } from '@/store/useSettings';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 
 export default function Cart() {
     const { items, updateQuantity, removeItem, clearCart, subtotal, tax, total, tableId, tableName } = useCart();
+    const settings = useSettings();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [isPlacing, setIsPlacing] = useState(false);
@@ -170,7 +172,7 @@ export default function Cart() {
                         <span>{formatCurrency(subtotal())}</span>
                     </div>
                     <div className="flex justify-between items-center text-slate-500 font-medium text-sm">
-                        <span>Taxes & Charges (5%)</span>
+                        <span>Taxes & Charges ({settings.taxRate}%)</span>
                         <span>{formatCurrency(tax())}</span>
                     </div>
                     <div className="flex justify-between items-center text-2xl font-black text-slate-900 pt-3 border-t border-slate-200">
