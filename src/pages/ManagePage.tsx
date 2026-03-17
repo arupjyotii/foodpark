@@ -510,28 +510,51 @@ function MenuTab() {
                 return;
             }
 
+            // Debug: log detected headers
+            if (rows.length > 0) {
+                console.log("Excel headers found:", Object.keys(rows[0]));
+            }
+
+            // Normalize: build a lowercase-keyed version of each row
+            const normalizeRow = (row: any): Record<string, string> => {
+                const out: Record<string, string> = {};
+                for (const k of Object.keys(row)) {
+                    out[k.toLowerCase().trim()] = row[k]?.toString().trim() ?? '';
+                }
+                return out;
+            };
+
             const { data: catData } = await supabase.from('categories').select('id,name');
             const dbCategories = (catData as { id: string; name: string }[]) || [];
 
             let addedCount = 0;
+            let skippedCount = 0;
 
-            for (const row of rows) {
-                const rawCat = row['Category']?.toString().trim();
-                const rawName = (row['Items'] || row['Item'] || row['Name'])?.toString().trim();
-                const rawPrice = row['Price']?.toString().trim();
+            for (const rawRow of rows) {
+                const row = normalizeRow(rawRow);
 
-                if (!rawCat || !rawName || !rawPrice) continue;
+                const rawCat = row['category'];
+                const rawName = row['items'] || row['item'] || row['name'] || row['dish'];
+                // Strip ₹, commas, spaces from price before parsing
+                const rawPrice = (row['price'] || '').replace(/[₹,\s]/g, '');
+
+                if (!rawCat || !rawName || !rawPrice) {
+                    console.warn('Skipping row — missing fields:', rawRow);
+                    skippedCount++;
+                    continue;
+                }
 
                 let catId = dbCategories.find(c => c.name.toLowerCase() === rawCat.toLowerCase())?.id;
 
                 if (!catId) {
-                    const { data: newCat, error } = await supabase
+                    const { data: newCat, error: catErr } = await supabase
                         .from('categories')
                         .insert({ name: rawCat })
                         .select('id,name')
                         .single();
-                    if (error) {
-                        console.error("Error creating category:", error);
+                    if (catErr) {
+                        console.error(`Failed to create category "${rawCat}":`, catErr.message);
+                        skippedCount++;
                         continue;
                     }
                     if (newCat) {
@@ -541,26 +564,36 @@ function MenuTab() {
                 }
 
                 if (catId) {
-                    const priceInPaise = Math.round(parseFloat(rawPrice) * 100);
-                    if (isNaN(priceInPaise) || priceInPaise <= 0) continue;
+                    const priceValue = parseFloat(rawPrice);
+                    if (isNaN(priceValue) || priceValue <= 0) {
+                        console.warn(`Skipping "${rawName}" — invalid price: "${rawPrice}"`);
+                        skippedCount++;
+                        continue;
+                    }
+                    const priceInPaise = Math.round(priceValue * 100);
 
-                    const { error } = await supabase.from('menu_items').insert({
+                    const { error: insertErr } = await supabase.from('menu_items').insert({
                         name: rawName,
                         category_id: catId,
                         price: priceInPaise,
                         is_available: true,
                         is_vegetarian: false,
-                        is_spicy: false
+                        is_spicy: false,
                     });
 
-                    if (!error) addedCount++;
+                    if (insertErr) {
+                        console.error(`Failed to insert "${rawName}":`, insertErr.message);
+                        skippedCount++;
+                    } else {
+                        addedCount++;
+                    }
                 }
             }
-            alert(`Successfully imported ${addedCount} items.`);
+            alert(`Import complete!\n✅ Imported: ${addedCount} items\n⚠️ Skipped: ${skippedCount} rows`);
             await fetchData();
         } catch (error: any) {
             console.error("Import error:", error);
-            alert("Error importing Excel file. Please ensure it has 'Category', 'Items', and 'Price' columns.");
+            alert("Error reading the Excel file. Make sure it's a valid .xlsx with columns: Category, Items, Price");
         } finally {
             setImporting(false);
             if (e.target) e.target.value = '';
