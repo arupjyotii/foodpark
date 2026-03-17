@@ -527,15 +527,17 @@ function MenuTab() {
             const { data: catData } = await supabase.from('categories').select('id,name');
             const dbCategories = (catData as { id: string; name: string }[]) || [];
 
-            let addedCount = 0;
             let skippedCount = 0;
+
+            // ── Step 1: Parse all rows, resolve/create categories ──────────────
+            type InsertRow = { name: string; category_id: string; price: number; is_available: boolean; is_vegetarian: boolean; is_spicy: boolean };
+            const toInsert: InsertRow[] = [];
 
             for (const rawRow of rows) {
                 const row = normalizeRow(rawRow);
 
                 const rawCat = row['category'];
                 const rawName = row['items'] || row['item'] || row['name'] || row['dish'];
-                // Strip ₹, commas, spaces from price before parsing
                 const rawPrice = (row['price'] || '').replace(/[₹,\s]/g, '');
 
                 if (!rawCat || !rawName || !rawPrice) {
@@ -570,24 +572,27 @@ function MenuTab() {
                         skippedCount++;
                         continue;
                     }
-                    const priceInPaise = Math.round(priceValue * 100);
-
-                    const { error: insertErr } = await supabase.from('menu_items').insert({
+                    toInsert.push({
                         name: rawName,
                         category_id: catId,
-                        price: priceInPaise,
+                        price: Math.round(priceValue * 100),
                         is_available: true,
                         is_vegetarian: false,
                         is_spicy: false,
                     });
-
-                    if (insertErr) {
-                        console.error(`Failed to insert "${rawName}":`, insertErr.message);
-                        skippedCount++;
-                    } else {
-                        addedCount++;
-                    }
                 }
+            }
+
+            // ── Step 2: Single batch insert for all menu items ─────────────────
+            let addedCount = 0;
+            if (toInsert.length > 0) {
+                const { error: batchErr } = await supabase.from('menu_items').insert(toInsert);
+                if (batchErr) {
+                    console.error('Batch insert failed:', batchErr.message);
+                    alert(`Batch insert failed: ${batchErr.message}`);
+                    return;
+                }
+                addedCount = toInsert.length;
             }
             alert(`Import complete!\n✅ Imported: ${addedCount} items\n⚠️ Skipped: ${skippedCount} rows`);
             await fetchData();
