@@ -2,6 +2,15 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Order, OrderItem, MenuItem } from '@/types';
 
+// ─── Android WebView bridge type ─────────────────────────────────────────────
+declare global {
+    interface Window {
+        Android?: {
+            printESCPOS: (text: string) => void;
+        };
+    }
+}
+
 interface InvoiceData {
     order: Order;
     items: (OrderItem & { menu_item: MenuItem })[];
@@ -239,9 +248,59 @@ export const generateKOTPDF = (data: KOTData) => {
     return doc;
 };
 
-/** Open KOT in a new tab and trigger the print dialog */
+/** Open KOT in a new tab and trigger the print dialog (desktop fallback) */
 export const printKOT = (data: KOTData) => {
     const doc = generateKOTPDF(data);
     doc.autoPrint();
     window.open(doc.output('bloburl'), '_blank');
+};
+
+// ─── Bluetooth ESC/POS KOT Print (Android WebView) ───────────────────────────
+/**
+ * Prints KOT via Bluetooth thermal printer when running inside the Android WebView.
+ * Calls window.Android.printESCPOS(text) which is handled by PrintBridge.kt.
+ * Falls back to PDF print when running in a desktop browser.
+ */
+export const printKOTBluetooth = (data: KOTData) => {
+    if (window.Android?.printESCPOS) {
+        // Format as plain-text ESC/POS layout (48-char wide for 80mm paper)
+        const L = (text: string) => text + '\n';
+        const divider = '================================\n';
+        const thinLine = '--------------------------------\n';
+        const center = (text: string, width = 32) => {
+            const pad = Math.max(0, Math.floor((width - text.length) / 2));
+            return ' '.repeat(pad) + text + '\n';
+        };
+
+        let out = '';
+        out += divider;
+        out += center('KITCHEN ORDER TICKET');
+        out += divider;
+        out += L(`Table  : ${data.tableNumber}`);
+        out += L(`KOT #  : ${data.orderId.slice(0, 8).toUpperCase()}`);
+        out += L(`Waiter : ${data.waiterName}`);
+        out += L(`Time   : ${new Date(data.createdAt).toLocaleTimeString('en-IN', {
+            hour: '2-digit', minute: '2-digit', hour12: true,
+        })}`);
+        out += thinLine;
+        out += L('ITEM                       QTY');
+        out += thinLine;
+
+        for (const item of data.items) {
+            const name = item.name.length > 23 ? item.name.substring(0, 22) + '…' : item.name.padEnd(23);
+            const qty = `x${item.quantity}`;
+            out += L(`${name}  ${qty}`);
+            if (item.notes) {
+                out += L(`  > ${item.notes}`);
+            }
+        }
+
+        out += divider;
+        out += '\n\n\n'; // Feed before cut
+
+        window.Android.printESCPOS(out);
+    } else {
+        // Fallback for desktop browser
+        printKOT(data);
+    }
 };

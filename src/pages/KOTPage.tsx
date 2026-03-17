@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { printKOT } from '@/lib/billing';
+import { printKOTBluetooth } from '@/lib/billing';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -87,7 +87,7 @@ function KOTCard({
     };
 
     const handleReprintKOT = () => {
-        printKOT({
+        printKOTBluetooth({
             orderId: order.id,
             tableNumber: order.table?.number ?? '?',
             waiterName: order.waiter?.full_name ?? 'Unknown',
