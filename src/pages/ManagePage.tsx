@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/store/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -413,6 +414,7 @@ function MenuTab() {
     const [newItem, setNewItem] = useState({ name: '', category_id: '', price: '', is_vegetarian: false, is_spicy: false, image_url: '' });
     const [addErr, setAddErr] = useState('');
     const [adding, setAdding] = useState(false);
+    const [importing, setImporting] = useState(false);
     const [uploadingImg, setUploadingImg] = useState<'add' | 'edit' | null>(null);
 
     const fetchData = useCallback(async () => {
@@ -493,6 +495,78 @@ function MenuTab() {
         setAdding(false);
     };
 
+    const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImporting(true);
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+            
+            if (rows.length === 0) {
+                alert("The Excel file is empty.");
+                return;
+            }
+
+            const { data: catData } = await supabase.from('categories').select('id,name');
+            const dbCategories = (catData as { id: string; name: string }[]) || [];
+
+            let addedCount = 0;
+
+            for (const row of rows) {
+                const rawCat = row['Category']?.toString().trim();
+                const rawName = (row['Items'] || row['Item'] || row['Name'])?.toString().trim();
+                const rawPrice = row['Price']?.toString().trim();
+
+                if (!rawCat || !rawName || !rawPrice) continue;
+                
+                let catId = dbCategories.find(c => c.name.toLowerCase() === rawCat.toLowerCase())?.id;
+                
+                if (!catId) {
+                    const { data: newCat, error } = await supabase
+                        .from('categories')
+                        .insert({ name: rawCat })
+                        .select('id,name')
+                        .single();
+                    if (error) {
+                        console.error("Error creating category:", error);
+                        continue;
+                    }
+                    if (newCat) {
+                        dbCategories.push(newCat);
+                        catId = newCat.id;
+                    }
+                }
+
+                if (catId) {
+                    const priceInPaise = Math.round(parseFloat(rawPrice) * 100);
+                    if (isNaN(priceInPaise) || priceInPaise <= 0) continue;
+
+                    const { error } = await supabase.from('menu_items').insert({
+                        name: rawName,
+                        category_id: catId,
+                        price: priceInPaise,
+                        is_available: true,
+                        is_vegetarian: false,
+                        is_spicy: false
+                    });
+                    
+                    if (!error) addedCount++;
+                }
+            }
+            alert(`Successfully imported ${addedCount} items.`);
+            await fetchData();
+        } catch (error: any) {
+            console.error("Import error:", error);
+            alert("Error importing Excel file. Please ensure it has 'Category', 'Items', and 'Price' columns.");
+        } finally {
+            setImporting(false);
+            if (e.target) e.target.value = '';
+        }
+    };
+
     const filtered = filterCat ? items.filter(i => i.category_id === filterCat) : items;
     const catName = (id: string) => categories.find(c => c.id === id)?.name ?? '—';
 
@@ -515,6 +589,11 @@ function MenuTab() {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={fetchData} className="gap-1.5"><RefreshCw className="w-3.5 h-3.5" />Refresh</Button>
+                    <label className={cn('h-8 px-3 flex items-center gap-1.5 rounded-md border border-slate-200 bg-white text-sm font-medium cursor-pointer hover:bg-slate-50 transition-colors shrink-0', importing && 'opacity-50 pointer-events-none')}>
+                        {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5 text-slate-500" />}
+                        Import Excel
+                        <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} disabled={importing} />
+                    </label>
                     <Button size="sm" onClick={() => { setShowAdd(v => !v); setAddErr(''); }} className="gap-1.5"><PlusCircle className="w-3.5 h-3.5" />Add Dish</Button>
                 </div>
             </div>
@@ -689,7 +768,6 @@ function MenuTab() {
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 import { useSettings } from '@/store/useSettings';
 import type { PaymentMethod } from '@/store/useSettings';
-import * as XLSX from 'xlsx';
 
 const PAYMENT_META: Record<PaymentMethod, { label: string; icon: typeof ChefHat; color: string }> = {
     cash: { label: 'Cash', icon: UtensilsCrossed, color: 'text-emerald-600' },
