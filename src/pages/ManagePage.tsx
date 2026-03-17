@@ -504,7 +504,7 @@ function MenuTab() {
             const workbook = XLSX.read(data);
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const rows: any[] = XLSX.utils.sheet_to_json(sheet);
-            
+
             if (rows.length === 0) {
                 alert("The Excel file is empty.");
                 return;
@@ -521,9 +521,9 @@ function MenuTab() {
                 const rawPrice = row['Price']?.toString().trim();
 
                 if (!rawCat || !rawName || !rawPrice) continue;
-                
+
                 let catId = dbCategories.find(c => c.name.toLowerCase() === rawCat.toLowerCase())?.id;
-                
+
                 if (!catId) {
                     const { data: newCat, error } = await supabase
                         .from('categories')
@@ -552,7 +552,7 @@ function MenuTab() {
                         is_vegetarian: false,
                         is_spicy: false
                     });
-                    
+
                     if (!error) addedCount++;
                 }
             }
@@ -910,7 +910,7 @@ function ReportsTab() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Orders Report');
 
-            const fileName = `SuSwadish_Orders_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            const fileName = `SuSwadist_Orders_${new Date().toISOString().slice(0, 10)}.xlsx`;
             XLSX.writeFile(wb, fileName);
         } finally {
             setExporting(false);

@@ -51,7 +51,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
                     <img
                         src="/assets/logo.png"
-                        alt="Su Swadish"
+                        alt="Su Swadist"
                         className="w-16 h-16 object-contain rounded-xl"
                         onError={(e) => {
                             // Fallback: hide broken img, show initials badge
@@ -64,7 +64,7 @@ export default function Layout({ children }: LayoutProps) {
                     <div className="w-12 h-12 bg-primary rounded-xl items-center justify-center hidden shrink-0">
                         <span className="text-white font-black text-lg leading-none">SS</span>
                     </div>
-                    <span className="font-bold text-xl tracking-tight hidden sm:inline-block">Su Swadish Restaurant</span>
+                    <span className="font-bold text-xl tracking-tight hidden sm:inline-block">Su Swadist Restaurant</span>
                 </div>
 
                 <div className="flex items-center gap-4">
